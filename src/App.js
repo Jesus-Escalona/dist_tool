@@ -38,15 +38,16 @@ class App extends Component {
         return people.sort((a,b) => a.gender - b.gender || a.act - b.act || a.sector - b.sector)
     };
 
-    assignTables = () => {
-        const { sortedPeople } = this.state;
+    assignTables = (sortedPeople) => {
         let people = [...sortedPeople];
         let numberOfTables = this.getNumberOfTables();
         let tables = Array(numberOfTables).fill(0).map(() => new Table());
         let i = 0;
         while (people.length) {
             let tableIdx = i % numberOfTables;
-            tables[tableIdx].addPerson(people.pop());
+            let person = people.pop();
+            person.assignTable(tableIdx);
+            tables[tableIdx].addPerson(person);
             i++
         }
 
@@ -55,9 +56,33 @@ class App extends Component {
 
     generatePeople = () => {
         const { numberOfPeople } = this.state;
-        let people = Array(parseInt(numberOfPeople)).fill(0).map(() => new Person(Math.floor(Math.random() * 10), Math.floor(Math.random() * 10), Math.floor(Math.random() * 2)));
+        let people = Array(numberOfPeople).fill(0).map((el, index) => new Person(Math.floor(Math.random() * 10), Math.floor(Math.random() * 10), Math.floor(Math.random() * 2), index));
         let sortedPeople = this.sortPeople([...people]);
-        this.setState({people, sortedPeople});
+        let tables = this.assignTables(sortedPeople);
+
+        let label = people.map(person => person.name).concat(sortedPeople.map(person => person.name)).concat(tables.map((e,i) => "Table " + i));
+
+        let source = Array(numberOfPeople).fill(1).map((e,i) => i);
+        let target = Array(numberOfPeople).fill(0);
+        sortedPeople.forEach((person, index) => target[person.position] = index + numberOfPeople);
+
+        source = source.concat(Array(numberOfPeople).fill(1).map((e,i) => i + numberOfPeople));
+        target = target.concat(sortedPeople.map(person => person.table + numberOfPeople*2));
+
+
+        let link = {
+            source,
+            target,
+            value: Array(2*numberOfPeople).fill(1)
+        };
+
+        // link: {
+        //     source: [0,1,0,2,3,3],
+        //         target: [2,3,3,4,4,5],
+        //         value:  [8,4,2,8,4,2]
+        // }
+
+        this.setState({label, link, people, sortedPeople, tables});
     };
 
 
@@ -67,7 +92,7 @@ class App extends Component {
         return (
             <div className="App">
                 <h1>Seating Tool Visualization</h1>
-                <input value={numberOfPeople || ""} onChange={(e) => this.setState({numberOfPeople: e.target.value})} placeholder="Enter a number"/>
+                <input value={numberOfPeople || ""} onChange={(e) => this.setState({numberOfPeople: parseInt(e.target.value)})} placeholder="Enter a number"/>
                 <button onClick={this.generatePeople}>Assign tables</button>
 
                 <Plot
@@ -75,17 +100,19 @@ class App extends Component {
                         {
                             type: "sankey",
                             orientation: "h",
+                            arrangement: "perpendicular",
                             node: {
                                 pad: 40,
                                 thickness: 40,
                                 label,
-                                colorscale: "Picnic"
+                                colorscale: "Picnic",
+                                y: link.target,
                             },
 
                             link
                         }
                     ]}
-                    layout={ {width: 800, height: 600, title: 'A Fancy Sankey', font: {size: 10}} }
+                    layout={ {width: 1000, height: 800, title: 'Even distribution of people', font: {size: 10}} }
                 />
             </div>
         )
